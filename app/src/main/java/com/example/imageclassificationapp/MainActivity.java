@@ -41,6 +41,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        //loading pytorch model
         try {
             module = LiteModuleLoader.load(assetFilePath(this, "model.pt"));
         } catch (IOException e) {
@@ -48,10 +49,12 @@ public class MainActivity extends AppCompatActivity {
             finish();
         }
 
+        //requesting permissions to use phone storage
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, 1);
         }
 
+        //creating click listener for gallery button
         Button gallery = findViewById(R.id.gallery);
         gallery.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -61,19 +64,24 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        //creating click listener for identify button
         Button identify = findViewById(R.id.identify);
         identify.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                // creating input Tensor
                 final Tensor inputTensor = TensorImageUtils.bitmapToFloat32Tensor(bitmap,
+                        //normalizing image with mean and std
                         TensorImageUtils.TORCHVISION_NORM_MEAN_RGB, TensorImageUtils.TORCHVISION_NORM_STD_RGB);
 
+                //generating output
                 final Tensor outputTensor = module.forward(IValue.from(inputTensor)).toTensor();
 
                 final float[] scores = outputTensor.getDataAsFloatArray();
 
                 float maxScore = -Float.MAX_VALUE;
                 int maxScoreIdx = -1;
+                //finding most likely match
                 for (int i= 0; i < scores.length; i++){
                     if (scores[i] > maxScore){
                         maxScore = scores[i];
@@ -81,20 +89,26 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
 
+                //setting classname to most likely score
                 String className = ImageNetClasses.IMAGENET_CLASSES[maxScoreIdx];
 
+                //setting textview to match classname
                 TextView textView = findViewById(R.id.textView);
                 textView.setText(className);
             }
         });
     }
+
+    //onresult occurs when user selects an image
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if(resultCode == RESULT_OK && data != null) {
+            //selectedImage variable is set and imageView is updated to selectedImage
             selectedImage = data.getData();
             ImageView imageView = findViewById(R.id.imageView);
             imageView.setImageURI(selectedImage);
+            //generate a bitmap of the selectedImage
             try {
                 bitmap = MediaStore.Images.Media.getBitmap(getApplicationContext().getContentResolver(), selectedImage);
             } catch (IOException e) {
@@ -103,6 +117,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    //setting assetFilePath name to load model
     public static String assetFilePath(Context context, String assetName) throws IOException {
         File file = new File(context.getFilesDir(), assetName);
         if (file.exists() && file.length() > 0) {
